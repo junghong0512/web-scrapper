@@ -1,11 +1,45 @@
-from indeed import get_jobs as get_indeed_jobs
-from so import get_jobs as get_so_jobs
-from save import save_to_file
+from flask import Flask, render_template, request, redirect, send_file
+from scrapper import get_jobs
+from exporter import save_to_file
 
-# so_jobs = get_so_jobs()
-indeed_jobs = get_indeed_jobs()
+app = Flask("SuperScrapper")
 
-# jobs = indeed_jobs + so_jobs
-jobs = indeed_jobs
+db = {}
 
-save_to_file(jobs)
+@app.route("/")
+def home():
+  return render_template("potato.html")
+
+@app.route("/report")
+def report():
+  word = request.args.get("word")
+  if word:
+    word = word.lower()
+    existingJobs = db.get(word)
+    if existingJobs:
+      jobs = existingJobs
+    else:
+      jobs = get_jobs(word)
+      db[word] = jobs
+  else:
+    return redirect("/")
+  return render_template("report.html", searchingBy=word, resultsNumber=len(jobs), jobs=jobs)
+
+@app.route("/export")
+def export():
+  try:
+    word = request.args.get("word")
+    if not word:
+      raise Exception()
+    word = word.lower()
+    jobs = db.get(word)
+    if not jobs:
+      raise Exception()
+    save_to_file(jobs)
+    return send_file("jobs.csv", as_attachment=True,    attachment_filename='test.csv',
+    mimetype='text/csv')
+  except:
+    return redirect("/")
+
+
+app.run(host="0.0.0.0")
